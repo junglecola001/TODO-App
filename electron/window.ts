@@ -5,13 +5,43 @@ import { BrowserWindow, nativeImage, nativeTheme, shell } from "electron"
 import { IPC } from "@/lib/ipc-channels"
 
 import { createAppIcon } from "./assets/icon"
+import { readSettings } from "./db/repositories/settings-repository"
 import { DEV_SERVER_URL, isDev, serveExport } from "./lib/paths"
+import { notifyHiddenToTrayOnce } from "./notifications"
 import { APP_ORIGIN } from "./protocol"
 
 let mainWindow: BrowserWindow | null = null
+/** Set while a real quit is in progress, so closing stops hiding to the tray. */
+let quitting = false
 
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow
+}
+
+export function markQuitting(): void {
+  quitting = true
+}
+
+/** Brings the window back from the tray, recreating it if it was destroyed. */
+export function showMainWindow(): BrowserWindow {
+  const window = mainWindow ?? createMainWindow()
+
+  if (window.isMinimized()) window.restore()
+  window.show()
+  window.focus()
+  return window
+}
+
+/** Tray click: the window behaves like a toggle. */
+export function toggleMainWindow(): void {
+  const window = mainWindow
+
+  if (window && window.isVisible() && window.isFocused()) {
+    window.hide()
+    return
+  }
+
+  showMainWindow()
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -41,6 +71,18 @@ export function createMainWindow(): BrowserWindow {
   window.once("ready-to-show", () => window.show())
   window.on("closed", () => {
     mainWindow = null
+  })
+
+  // Closing the window hides FocusFlow to the tray instead of quitting
+  // (plan.md §16): the timer has to keep running. "Quit" from the tray menu
+  // sets the quitting flag first.
+  window.on("close", (event) => {
+    if (quitting) return
+    if (!readSettings().closeToTray) return
+
+    event.preventDefault()
+    window.hide()
+    notifyHiddenToTrayOnce()
   })
 
   const notifyMaximizedChanged = () => {
@@ -80,10 +122,10 @@ async function openExternally(url: string): Promise<void> {
 
 /**
  * The dev server is usually a second or two behind Electron, so keep retrying
- * instead of showing a blank window.
+ * instead of showing a blank window. FocusFlow always opens on Today.
  */
 async function loadRenderer(window: BrowserWindow): Promise<void> {
-  const url = serveExport ? `${APP_ORIGIN}/` : `${DEV_SERVER_URL}/`
+  const url = serveExport ? `${APP_ORIGIN}/today/` : `${DEV_SERVER_URL}/today`
   const attempts = isDev ? 120 : 1
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {

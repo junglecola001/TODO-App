@@ -97,6 +97,15 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Native controls (date pickers, scrollbars) follow the app theme. */
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
   body {
     @apply h-full bg-background text-foreground antialiased;
     text-rendering: optimizeLegibility;

@@ -44,13 +44,13 @@ Component
    ↓
 Zustand store
    ↓
-src/lib/ipc.ts            (typed bridge)
+src/lib/ipc.ts                     (typed bridge)
    ↓
-electron/preload.ts       (contextBridge — the only exposed surface)
+electron/preload.ts                (contextBridge — the only exposed surface)
    ↓
-electron/ipc/*            (ipcMain handlers)
+electron/ipc/*                     (ipcMain handlers)
    ↓
-electron/db/repositories  (data access)
+electron/db/repositories/*         (data access)
    ↓
 SQLite  (%APPDATA%/FocusFlow/focusflow.db)
 ```
@@ -62,23 +62,50 @@ SQLite  (%APPDATA%/FocusFlow/focusflow.db)
   goes through a narrow, typed IPC surface.
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`.
 
-### Layout
+### Where things live
 
 ```text
-electron/            main process, preload, window, protocol, IPC handlers
-scripts/             esbuild bundling, icon generation, production preview
-src/app/             Next.js App Router routes (Today, Inbox, …)
-src/components/      ui/ (shadcn), layout/, task/, timer/, statistics/, …
-src/lib/             ipc client, constants, formatting helpers
-src/stores/          Zustand stores
-src/types/           shared domain + IPC types
+electron/
+  main.ts             app lifecycle, single instance, wiring
+  window.ts           frameless window, close-to-tray, navigation guards
+  protocol.ts         focusflow:// handler serving out/
+  tray.ts             notification-area icon, menu, live tooltip
+  shortcuts.ts        system-wide shortcuts + conflict reporting
+  system.ts           Windows login item
+  notifications.ts    phase-complete and first-hide notifications
+  timer/              the Pomodoro engine (main process, real-clock maths)
+  db/                 schema, migrations, repositories
+  ipc/                one module per feature; handlers only, no SQL
+src/
+  app/(shell)/        Today, Inbox, Upcoming, Projects, Statistics, Settings
+  components/         ui/ (shadcn), layout/, task/, timer/, project/, statistics/, command-palette/
+  stores/             Zustand: tasks, projects, settings, timer, UI
+  lib/                ipc client, dates, task views, parser, sounds, timer helpers
 ```
+
+### Noteworthy decisions
+
+- **Timer in the main process.** It keeps running while the window is hidden to
+  the tray, and the tray and notifications read the same state. It never counts
+  down: the remaining time is derived from `startedAt` + `durationMs`, which is
+  what makes it immune to throttling and sleep.
+- **`due_date` is a local calendar date** (`YYYY-MM-DD`), never a timestamp, so
+  "today" cannot drift across time zones. Statistics convert epoch milliseconds
+  with SQLite's `localtime` modifier for the same reason.
+- **The accent color is applied as `--primary`** at runtime; project colors are
+  data and stay inline.
+- **Sounds are synthesised** with the Web Audio API — no audio assets, and the
+  whole palette is defined in `src/lib/sounds.ts`.
+- **Icons are generated at runtime** (`electron/assets/icon.ts` writes a PNG with
+  `zlib`), so the repository holds no opaque binaries.
 
 ### Data location
 
 ```text
 %APPDATA%/FocusFlow/
-└── focusflow.db
+├── focusflow.db
+├── focusflow.db-wal
+└── focusflow.db-shm
 ```
 
 The database is never written to the install directory.
@@ -88,13 +115,55 @@ The database is never written to the install directory.
 - Tokens live in `src/app/globals.css` as HSL channel triplets; `tailwind.config.ts`
   only maps names to those tokens, so re-theming never touches component code.
 - Default accent is `#FF5A5F`, and Settings can switch between Red / Orange /
-  Blue / Purple / Green. The accent is used deliberately (primary actions, the
-  timer ring, active navigation) — never as decoration.
+  Blue / Purple / Green.
 - Light: `#F7F7F5` canvas, `#FFFFFF` surface, `#171717` text, `#E8E8E5` border.
 - Dark: `#111111` canvas, `#181818` surface, `#F5F5F5` text, `#292929` border.
 - Icons: **Lucide** only. Animation: **Framer Motion** only.
 
+## Keyboard
+
+| Shortcut | Scope | Action |
+| --- | --- | --- |
+| `Ctrl+Alt+P` | Anywhere | Show or hide FocusFlow |
+| `Ctrl+Alt+Space` | Anywhere | Start or pause focus |
+| `Ctrl+N` | FocusFlow focused | New task |
+| `Ctrl+K` | FocusFlow focused | Command palette |
+| `Ctrl+Shift+F` | FocusFlow focused | Focus mode |
+| `Esc` | Focus mode | Leave focus mode |
+
+The `Ctrl+Alt+…` pairs are registered system-wide; the others stay local so they
+do not break other applications. Conflicts are reported in Settings.
+
+## Definition of Done
+
+Every phase is checked against plan.md §35:
+
+- [x] Feature works end to end
+- [x] TypeScript strict mode, no `any`, no unused imports
+- [x] Dark mode for every screen
+- [x] Keyboard navigation and visible focus states
+- [x] Loading, empty and error states on every list
+- [x] UI consistent with the design system, no duplicated components
+- [x] Local-first: no network calls anywhere in the app
+
+Run before committing:
+
+```bash
+npm run typecheck
+npm run lint
+npm run build:app
+```
+
 ## Status
 
-Phase 0 (project setup) and Phase 1 (design system) are complete. See
-`plan.md` for the full roadmap.
+| Phase | |
+| --- | --- |
+| 0 — Project setup | ✅ Next.js 16 (static export) + Electron 44 + TypeScript strict |
+| 1 — Design system | ✅ Tokens, typography, shadcn/ui primitives, light + dark |
+| 2 — App shell | ✅ Window chrome, sidebar, header, theme, settings, page transitions |
+| 3 — Todo | ✅ CRUD, Today / Inbox / Upcoming, projects, quick add with parsing |
+| 4 — Timer | ✅ Drift-free engine, task × pomodoro, focus mode |
+| 5 — Integration | ✅ Sessions recorded, task counts, notifications, sounds |
+| 6 — Windows | ✅ Tray, close-to-tray, global shortcuts, login item |
+| 7 — Statistics | ✅ Pomodoros, focus time, completed tasks, streak, weekly chart |
+| 8 — Polish | ✅ Command palette, empty/error/loading states, accessibility pass |
