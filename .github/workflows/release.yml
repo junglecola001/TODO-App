@@ -47,23 +47,11 @@ jobs:
 
       - name: Install dependencies
         # `npm ci` needs a committed lockfile; this repository has none yet.
-        # Installed for the *runner's* architecture on purpose: esbuild, Next and
-        # esbuild's own platform binaries have to be executable here. Only the
-        # native addon is swapped below.
+        # No cross-architecture handling is needed here: better-sqlite3 v13
+        # ships the prebuild for every platform inside its own tarball and picks
+        # one at runtime from `process.arch`, so a single install covers both
+        # legs of the matrix.
         run: npm install
-
-      - name: Fetch the native addon for the target architecture
-        shell: bash
-        env:
-          # prebuild-install reads this and downloads the arm64 prebuild of
-          # better-sqlite3 into build/Release. `npm rebuild <pkg>` re-runs only
-          # that one package's install script, so esbuild stays x64.
-          npm_config_arch: ${{ matrix.arch }}
-        run: npm rebuild better-sqlite3
-
-      - name: Verify the native addon matches the target architecture
-        # Without this a packaging mistake ships an unlaunchable installer.
-        run: node scripts/verify-native-arch.mjs ${{ matrix.arch }}
 
       - name: Sync package.json version to the tag
         shell: bash
@@ -84,6 +72,12 @@ jobs:
         run: npm run dist -- --publish never --${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify the packaged native addon matches the target architecture
+        # Checks the tree electron-builder actually packs, because the failure
+        # this guards against is silent: a wrong glob ships an installer that
+        # installs cleanly and then dies on first launch.
+        run: node scripts/verify-native-arch.mjs ${{ matrix.arch }}
 
       - name: Keep the installer as an artifact
         uses: actions/upload-artifact@v4
