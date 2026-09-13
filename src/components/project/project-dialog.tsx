@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import { createElement, useState, type FormEvent } from "react"
 import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -52,14 +52,24 @@ export function ProjectDialog() {
   const [saving, setSaving] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setName(project?.name ?? "")
-    setIcon(project?.icon ?? "folder")
-    setColor(project?.color ?? "blue")
-    setSaving(false)
-    setConfirmDeleteOpen(false)
-  }, [open, project])
+  // Reload the form each time the dialog opens, so it always reflects the
+  // project it was opened for (or a blank new one). Adjusting state during
+  // render is React's documented pattern for resetting state on a prop change;
+  // doing it in an effect would also wipe what the user typed whenever the
+  // project list refreshed underneath the open dialog.
+  const formKey = open ? (project?.id ?? "new") : null
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+
+  if (formKey !== loadedKey) {
+    setLoadedKey(formKey)
+    if (formKey !== null) {
+      setName(project?.name ?? "")
+      setIcon(project?.icon ?? "folder")
+      setColor(project?.color ?? "blue")
+      setSaving(false)
+      setConfirmDeleteOpen(false)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -96,8 +106,6 @@ export function ProjectDialog() {
     close()
   }
 
-  const SelectedIcon = resolveProjectIcon(icon)
-
   return (
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? undefined : close())}>
@@ -115,7 +123,7 @@ export function ProjectDialog() {
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border"
                 style={{ color: ACCENT_PRESETS.find((preset) => preset.id === color)?.hex }}
               >
-                <SelectedIcon className="size-4" />
+                {createElement(resolveProjectIcon(icon), { className: "size-4" })}
               </span>
               <div className="flex-1">
                 <Label htmlFor="project-name" className="sr-only">

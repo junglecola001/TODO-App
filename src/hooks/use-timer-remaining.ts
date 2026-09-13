@@ -14,10 +14,13 @@ export function useTimerRemaining(): { remainingMs: number; progress: number } {
   const state = useTimerStore((store) => store.state)
   const [now, setNow] = useState(() => Date.now())
 
+  // Only the interval writes the clock: reading it during render would be
+  // impure, and writing it synchronously here would cascade a render. The
+  // first frame after a phase change can lag by up to one tick, which rounds
+  // to the same displayed second.
   useEffect(() => {
     if (state.status !== "running") return
 
-    setNow(Date.now())
     const timer = window.setInterval(() => setNow(Date.now()), 250)
     return () => window.clearInterval(timer)
   }, [state.status, state.startedAt, state.durationMs])

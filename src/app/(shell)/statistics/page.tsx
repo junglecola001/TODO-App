@@ -31,6 +31,10 @@ export default function StatisticsPage() {
   }, [])
 
   useEffect(() => {
+    // The setState calls inside `load` all sit behind an `await`, so nothing
+    // runs synchronously in the effect body — the rule just cannot see across
+    // the async boundary. Loading once on mount is the intent here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load])
 

@@ -1,6 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
+
+/** Nothing to subscribe to: the snapshot only ever changes once, at hydration. */
+const subscribe = () => () => undefined
 
 /**
  * True once the component has mounted on the client.
@@ -8,11 +11,11 @@ import { useEffect, useState } from "react"
  * without tripping hydration mismatches.
  */
 export function useMounted(): boolean {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  return mounted
+  // The supported way to ask "are we on the client yet": the server snapshot is
+  // false so hydration matches, then the client snapshot flips to true.
+  return useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { Minus, Plus } from "lucide-react"
 import { toast } from "sonner"
 
@@ -46,17 +46,25 @@ export function TaskDialog() {
   const [saving, setSaving] = useState(false)
 
   // Reload the form each time the dialog opens, so it always reflects the task
-  // it was opened for (or a blank new task).
-  useEffect(() => {
-    if (!open) return
-    setTitle(task?.title ?? "")
-    setDescription(task?.description ?? "")
-    setPriority(task?.priority ?? "none")
-    setDueDate(task?.dueDate ?? null)
-    setProjectId(task?.projectId ?? defaultProjectId ?? null)
-    setEstimatedPomodoros(task?.estimatedPomodoros ?? 0)
-    setSaving(false)
-  }, [open, task, defaultProjectId])
+  // it was opened for (or a blank new task). Adjusting state during render is
+  // React's documented pattern for resetting state on a prop change; doing it
+  // in an effect would also wipe what the user typed whenever the task list
+  // refreshed underneath the open dialog.
+  const formKey = open ? (task?.id ?? `new:${defaultProjectId ?? ""}`) : null
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+
+  if (formKey !== loadedKey) {
+    setLoadedKey(formKey)
+    if (formKey !== null) {
+      setTitle(task?.title ?? "")
+      setDescription(task?.description ?? "")
+      setPriority(task?.priority ?? "none")
+      setDueDate(task?.dueDate ?? null)
+      setProjectId(task?.projectId ?? defaultProjectId ?? null)
+      setEstimatedPomodoros(task?.estimatedPomodoros ?? 0)
+      setSaving(false)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()

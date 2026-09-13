@@ -18,7 +18,7 @@ import {
   Utensils,
   type LucideIcon,
 } from "lucide-react"
-import type { CSSProperties } from "react"
+import { createElement, type CSSProperties } from "react"
 
 /**
  * Projects store an icon *name*; this curated map keeps only the icons we
@@ -61,6 +61,7 @@ export function ProjectIcon({
   className?: string
   style?: CSSProperties
 }) {
-  const Icon = resolveProjectIcon(name)
-  return <Icon className={className} style={style} />
+  // `createElement` rather than a capitalised local variable: this is a lookup
+  // in a module-level map of stable icons, not a component defined in render.
+  return createElement(resolveProjectIcon(name), { className, style })
 }
