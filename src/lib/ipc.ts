@@ -33,4 +33,22 @@ export const ipc: FocusFlowApi = {
   get window() {
     return requireBridge().window
   },
+  get tasks() {
+    return requireBridge().tasks
+  },
+  get projects() {
+    return requireBridge().projects
+  },
+  get settings() {
+    return requireBridge().settings
+  },
+  get timer() {
+    return requireBridge().timer
+  },
+  get system() {
+    return requireBridge().system
+  },
+  get statistics() {
+    return requireBridge().statistics
+  },
 }

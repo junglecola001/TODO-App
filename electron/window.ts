@@ -4,7 +4,7 @@ import { BrowserWindow, nativeImage, nativeTheme, shell } from "electron"
 
 import { IPC } from "@/lib/ipc-channels"
 
-import { createAppIcon } from "./assets/icon"
+import { renderAppIcon } from "./assets/icon"
 import { readSettings } from "./db/repositories/settings-repository"
 import { DEV_SERVER_URL, isDev, serveExport } from "./lib/paths"
 import { notifyHiddenToTrayOnce } from "./notifications"
@@ -54,7 +54,7 @@ export function createMainWindow(): BrowserWindow {
     // The app draws its own title bar so the chrome matches the design.
     frame: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111111" : "#F7F7F5",
-    icon: nativeImage.createFromBuffer(createAppIcon(256)),
+    icon: nativeImage.createFromBuffer(renderAppIcon(256)),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

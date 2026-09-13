@@ -77,14 +77,24 @@ export const useTimerStore = create<TimerStoreState>((set) => {
     start: async (options) => {
       if (await run(() => ipc.timer.start(options))) playSound("timerStart")
     },
-    pause: () => run(() => ipc.timer.pause()),
+    pause: async () => {
+      await run(() => ipc.timer.pause())
+    },
     resume: async () => {
       if (await run(() => ipc.timer.resume())) playSound("timerStart")
     },
-    reset: () => run(() => ipc.timer.reset()),
-    skip: () => run(() => ipc.timer.skip()),
-    setPhase: (phase) => run(() => ipc.timer.setPhase(phase)),
-    selectTask: (taskId) => run(() => ipc.timer.selectTask(taskId)),
+    reset: async () => {
+      await run(() => ipc.timer.reset())
+    },
+    skip: async () => {
+      await run(() => ipc.timer.skip())
+    },
+    setPhase: async (phase) => {
+      await run(() => ipc.timer.setPhase(phase))
+    },
+    selectTask: async (taskId) => {
+      await run(() => ipc.timer.selectTask(taskId))
+    },
 
     clearError: () => set({ error: null }),
   }
