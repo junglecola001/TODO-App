@@ -32,6 +32,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
       - name: Resolve version
         id: version
@@ -46,12 +47,11 @@ jobs:
           echo "Building FocusFlow ${version} for ${{ matrix.arch }}"
 
       - name: Install dependencies
-        # `npm ci` needs a committed lockfile; this repository has none yet.
-        # No cross-architecture handling is needed here: better-sqlite3 v13
-        # ships the prebuild for every platform inside its own tarball and picks
-        # one at runtime from `process.arch`, so a single install covers both
-        # legs of the matrix.
-        run: npm install
+        # Installs exactly the versions in package-lock.json. No cross-
+        # architecture handling is needed: better-sqlite3 v13 ships the prebuild
+        # for every platform inside its own tarball and picks one at runtime
+        # from `process.arch`, so a single install covers both matrix legs.
+        run: npm ci
 
       - name: Sync package.json version to the tag
         shell: bash
