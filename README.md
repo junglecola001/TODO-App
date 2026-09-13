@@ -11,8 +11,13 @@ project and focus session is stored locally in SQLite — no account, no network
 
 - **Windows 10/11** (primary target)
 - **Node.js 22+** (`better-sqlite3` requires it)
-- No build tools needed: `better-sqlite3` ships prebuilt N-API binaries for
-  `win32-x64` and `win32-arm64`, and they work in Electron without a rebuild.
+- No C++ toolchain is needed to *run* FocusFlow: `better-sqlite3` ships prebuilt
+  N-API binaries for `win32-x64` and `win32-arm64` that load in Electron as they
+  are (`npmRebuild` is off). Installing still triggers its implicit
+  `node-gyp rebuild` through npm, and that step wants Visual Studio's "Desktop
+  development with C++" workload. Without it, install with
+  `npm ci --ignore-scripts` and the prebuilt binary is used instead. CI is
+  unaffected — `windows-latest` ships the toolchain.
 
 ## Getting started
 
@@ -23,6 +28,11 @@ npm run dev
 
 `npm run dev` starts the Next.js dev server and the Electron shell together. The
 window retries until the dev server is ready, so start-up order never matters.
+
+If you installed with `--ignore-scripts`, that also skips Electron's own binary
+download, so `npm run dev` has no runtime to launch. Fetch it once with
+`node node_modules/electron/install.js`; the script is idempotent and returns
+immediately when the binary is already there.
 
 ## Scripts
 
