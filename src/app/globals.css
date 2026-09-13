@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   FocusFlow design tokens
+   Colors are HSL channel triplets, consumed as `hsl(var(--token))`.
+   `--primary` is the user-configurable accent (default #FF5A5F).
+   ========================================================================= */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 60 11.1% 96.5%; /* #F7F7F5 */
+    --foreground: 0 0% 9%; /* #171717 */
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 0 0% 9%;
+
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 0 0% 9%;
+
+    /* Accent — user configurable in Settings */
+    --primary: 358 100% 67.6%; /* #FF5A5F */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 60 5.6% 93.5%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 60 5.6% 93.5%;
+    --muted-foreground: 0 0% 45.1%; /* #737373 */
+
+    --accent: 60 6% 92%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 60 6.1% 90.4%; /* #E8E8E5 */
+    --input: 60 6.1% 90.4%;
+    --ring: 0 0% 63%;
+
+    /* Sidebar stays a touch deeper than the canvas for hierarchy */
+    --sidebar: 60 9% 94.5%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-border: 60 6.1% 89%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 0 0% 9%;
+
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 0 0% 6.7%; /* #111111 */
+    --foreground: 0 0% 96.1%; /* #F5F5F5 */
+
+    --card: 0 0% 9.4%; /* #181818 */
+    --card-foreground: 0 0% 96.1%;
+
+    --popover: 0 0% 9.4%; /* #181818 */
+    --popover-foreground: 0 0% 96.1%;
+
+    --primary: 358 100% 67.6%; /* #FF5A5F */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 96.1%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 53.3%; /* #888888 */
+
+    --accent: 0 0% 15.5%;
+    --accent-foreground: 0 0% 96.1%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 16.1%; /* #292929 */
+    --input: 0 0% 16.1%;
+    --ring: 0 0% 45%;
+
+    --sidebar: 0 0% 5.5%;
+    --sidebar-foreground: 0 0% 96.1%;
+    --sidebar-border: 0 0% 13%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 96.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply h-full;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply h-full bg-background text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  img,
+  svg {
+    -webkit-user-drag: none;
+  }
+
+  /* Desktop-grade scrollbars: thin, quiet, only visible when needed */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.45);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.22);
+  }
+}
+
+@layer utilities {
+  /* Electron frameless window chrome */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Timer digits must never jitter as numbers change */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

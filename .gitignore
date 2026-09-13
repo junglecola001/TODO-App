@@ -1,0 +1,35 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+*.tsbuildinfo
+
+# production / electron
+/dist-electron/
+/release/
+/build/icon.png
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env
+.env*.local
+
+# editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# local tooling state
+.mimosa/
