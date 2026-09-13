@@ -1,8 +1,8 @@
 name: Release
 
-# Pushing a tag like `v0.2.0` builds the Windows installer and publishes it as a
-# GitHub release. A manual run from the Actions tab builds the same installer
-# and leaves it as a downloadable artifact, without touching releases.
+# Pushing a tag like `v0.2.0` builds the Windows installers and publishes them as
+# a GitHub release. A manual run from the Actions tab builds the same installers
+# and leaves them as downloadable artifacts, without touching releases.
 on:
   push:
     tags:
@@ -15,8 +15,14 @@ permissions:
 
 jobs:
   windows-installer:
-    name: Windows installer
+    name: Windows installer (${{ matrix.arch }})
     runs-on: windows-latest
+
+    strategy:
+      # One architecture failing should not cancel the other.
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
 
     steps:
       - name: Check out
@@ -37,12 +43,27 @@ jobs:
             version="$(node -p "require('./package.json').version")"
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
-          echo "Building FocusFlow ${version}"
+          echo "Building FocusFlow ${version} for ${{ matrix.arch }}"
 
       - name: Install dependencies
         # `npm ci` needs a committed lockfile; this repository has none yet.
+        # Installed for the *runner's* architecture on purpose: esbuild, Next and
+        # esbuild's own platform binaries have to be executable here. Only the
+        # native addon is swapped below.
         run: npm install
+
+      - name: Fetch the native addon for the target architecture
+        shell: bash
+        env:
+          # prebuild-install reads this and downloads the arm64 prebuild of
+          # better-sqlite3 into build/Release. `npm rebuild <pkg>` re-runs only
+          # that one package's install script, so esbuild stays x64.
+          npm_config_arch: ${{ matrix.arch }}
+        run: npm rebuild better-sqlite3
+
+      - name: Verify the native addon matches the target architecture
+        # Without this a packaging mistake ships an unlaunchable installer.
+        run: node scripts/verify-native-arch.mjs ${{ matrix.arch }}
 
       - name: Sync package.json version to the tag
         shell: bash
@@ -60,32 +81,48 @@ jobs:
         # `--publish never` keeps electron-builder from creating the release
         # itself: the last step below does it explicitly, so the asset list and
         # the release notes are under our control.
-        run: npm run dist -- --publish never
+        run: npm run dist -- --publish never --${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Keep the installer as an artifact
         uses: actions/upload-artifact@v4
         with:
-          name: focusflow-windows-${{ steps.version.outputs.version }}
+          name: focusflow-windows-${{ steps.version.outputs.version }}-${{ matrix.arch }}
           if-no-files-found: error
           path: |
             release/*.exe
             release/*.blockmap
-            release/latest.yml
 
       - name: Publish the release
         if: github.ref_type == 'tag'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCH: ${{ matrix.arch }}
         run: |
           assets=()
-          for file in release/*.exe release/*.blockmap release/latest.yml; do
+          for file in release/*.exe release/*.blockmap; do
             [ -e "$file" ] && assets+=("$file")
           done
 
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "FocusFlow ${{ steps.version.outputs.version }}" \
-            --generate-notes \
-            "${assets[@]}"
+          # Both matrix jobs generate `latest.yml` under the same name, so left
+          # alone they would overwrite each other. Nothing reads it yet — the app
+          # ships no electron-updater — and a future updater would need one
+          # channel per architecture anyway, so keep it arch-suffixed.
+          if [ -f release/latest.yml ]; then
+            cp release/latest.yml "release/latest-${ARCH}.yml"
+            assets+=("release/latest-${ARCH}.yml")
+          fi
+
+          tag="${GITHUB_REF_NAME}"
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            # The two jobs start together, so one can lose this race. Losing it
+            # is harmless: the winner is creating the release we upload to next.
+            gh release create "$tag" \
+              --title "FocusFlow ${{ steps.version.outputs.version }}" \
+              --generate-notes || true
+          fi
+
+          gh release upload "$tag" "${assets[@]}" --clobber

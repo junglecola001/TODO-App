@@ -74,6 +74,7 @@
   "build": {
     "appId": "com.focusflow.app",
     "productName": "FocusFlow",
+    "artifactName": "${productName} Setup ${version} ${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
