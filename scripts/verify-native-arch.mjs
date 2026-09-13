@@ -29,7 +29,14 @@ if (!expected) {
 }
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
-const tree = path.resolve(root, dirArg ?? path.join("release", "win-unpacked"))
+
+/**
+ * electron-builder only omits the architecture from the unpacked directory name
+ * for the default target, so x64 lands in `win-unpacked` and everything else in
+ * `win-<arch>-unpacked`.
+ */
+const defaultTree = arch === "x64" ? "win-unpacked" : `win-${arch}-unpacked`
+const tree = path.resolve(root, dirArg ?? path.join("release", defaultTree))
 
 /** Reads the Machine field out of a PE file: 0x3C holds the COFF header offset. */
 function machineOf(file) {
@@ -58,6 +65,17 @@ function find(dir, match, found = [], seen = []) {
 
 if (!fs.existsSync(tree)) {
   console.error(`[verify-native-arch] ${path.relative(root, tree)} does not exist — did the build run?`)
+  // Spelling out what is actually there turns a naming mismatch into an
+  // obvious fix instead of a guess.
+  const release = path.join(root, "release")
+  const present = fs.existsSync(release)
+    ? fs.readdirSync(release).filter((entry) => entry.includes("unpacked"))
+    : []
+  console.error(
+    present.length
+      ? `[verify-native-arch] unpacked directories found: ${present.join(", ")}`
+      : `[verify-native-arch] no unpacked directory under ${path.relative(root, release)}`,
+  )
   process.exit(1)
 }
 
