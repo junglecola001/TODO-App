@@ -1,0 +1,91 @@
+name: Release
+
+# Pushing a tag like `v0.2.0` builds the Windows installer and publishes it as a
+# GitHub release. A manual run from the Actions tab builds the same installer
+# and leaves it as a downloadable artifact, without touching releases.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# `contents: write` is what lets the final step create the release.
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(node -p "require('./package.json').version")"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+          echo "Building FocusFlow ${version}"
+
+      - name: Install dependencies
+        # `npm ci` needs a committed lockfile; this repository has none yet.
+        run: npm install
+
+      - name: Sync package.json version to the tag
+        shell: bash
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+        # The tag is the source of truth, so the installer filename, the
+        # `latest.yml` update manifest and the release name all agree.
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build the installer
+        # `--publish never` keeps electron-builder from creating the release
+        # itself: the last step below does it explicitly, so the asset list and
+        # the release notes are under our control.
+        run: npm run dist -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Keep the installer as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: focusflow-windows-${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          assets=()
+          for file in release/*.exe release/*.blockmap release/latest.yml; do
+            [ -e "$file" ] && assets+=("$file")
+          done
+
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "FocusFlow ${{ steps.version.outputs.version }}" \
+            --generate-notes \
+            "${assets[@]}"
