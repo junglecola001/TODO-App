@@ -21,8 +21,15 @@ jobs:
     strategy:
       # One architecture failing should not cancel the other.
       fail-fast: false
+      # arm64 is deliberately absent. electron-builder 26.15.3 compresses the
+      # ARM64 executables in the NSIS payload with the ARM64 BCJ filter, which
+      # the NSIS extraction plugin cannot decode; it skips those entries and
+      # still reports success, producing an app with no .exe and no DLLs. The
+      # x64 payload uses the classic BCJ2 filter and is unaffected, and x64 runs
+      # on ARM64 Windows under emulation. Restore arm64 once packaging avoids
+      # that filter or a newer electron-builder fixes it.
       matrix:
-        arch: [x64, arm64]
+        arch: [x64]
 
     steps:
       - name: Check out
@@ -100,10 +107,8 @@ jobs:
             [ -e "$file" ] && assets+=("$file")
           done
 
-          # Both matrix jobs generate `latest.yml` under the same name, so left
-          # alone they would overwrite each other. Nothing reads it yet — the app
-          # ships no electron-updater — and a future updater would need one
-          # channel per architecture anyway, so keep it arch-suffixed.
+          # A second architecture would generate `latest.yml` under the same
+          # name, so keep it arch-suffixed.
           if [ -f release/latest.yml ]; then
             cp release/latest.yml "release/latest-${ARCH}.yml"
             assets+=("release/latest-${ARCH}.yml")
