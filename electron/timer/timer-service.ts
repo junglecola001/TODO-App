@@ -1,6 +1,7 @@
 import { BrowserWindow } from "electron"
 
 import { IPC } from "@/lib/ipc-channels"
+import { DEFAULT_SETTINGS } from "@/lib/constants"
 import type { TimerCompletionEvent, TimerPhase, TimerState } from "@/types/timer"
 
 import { notifyPhaseComplete } from "../notifications"
@@ -33,15 +34,25 @@ interface PersistedTimerState {
  * pomodoro counts and Windows notifications.
  */
 class TimerService {
-  private state: TimerState
+  /**
+   * Seeded from the compiled-in defaults, not from the settings table: this
+   * module is evaluated while `main.ts` is still being loaded, which is before
+   * `app.whenReady()` has opened the database. `restore()` — the first thing
+   * that runs once the database is ready — swaps in the user's real durations.
+   */
+  private state: TimerState = {
+    phase: "focus",
+    status: "idle",
+    durationMs: minutesToMs(DEFAULT_SETTINGS.focusMinutes),
+    startedAt: null,
+    remainingMs: null,
+    taskId: null,
+    completedFocusCount: 0,
+  }
   /** Real start of the current phase; stays fixed across pause/resume. */
   private phaseStartedAt: number | null = null
   private ticker: NodeJS.Timeout | null = null
   private listeners = new Set<(state: TimerState) => void>()
-
-  constructor() {
-    this.state = this.idleState("focus")
-  }
 
   getState(): TimerState {
     return { ...this.state }
@@ -138,10 +149,16 @@ class TimerService {
   restore(): void {
     try {
       const raw = readRawSetting(PERSISTED_STATE_KEY)
-      if (!raw) return
+      if (!raw) {
+        this.refreshIdleState()
+        return
+      }
 
       const parsed = JSON.parse(raw) as Partial<PersistedTimerState>
-      if (!isPhase(parsed.phase) || typeof parsed.remainingMs !== "number") return
+      if (!isPhase(parsed.phase) || typeof parsed.remainingMs !== "number") {
+        this.refreshIdleState()
+        return
+      }
 
       const durationMs = this.durationFor(parsed.phase)
       const remaining = Math.min(Math.max(0, parsed.remainingMs), durationMs)
@@ -269,6 +286,15 @@ class TimerService {
     return this.state.remainingMs ?? this.state.durationMs
   }
 
+  /**
+   * Re-derives an idle phase from the stored settings. Running this after the
+   * database opens is what replaces the construction-time fallback duration
+   * with whatever the user actually configured.
+   */
+  private refreshIdleState(): void {
+    this.state = this.idleState(this.state.phase, this.state.taskId, this.state.completedFocusCount)
+  }
+
   private idleState(
     phase: TimerPhase,
     taskId: string | null = null,
@@ -294,7 +320,7 @@ class TimerService {
           ? settings.shortBreakMinutes
           : settings.longBreakMinutes
 
-    return Math.max(1, Math.round(minutes)) * 60_000
+    return minutesToMs(minutes)
   }
 
   private startTicker(): void {
@@ -357,6 +383,11 @@ class TimerService {
       if (!window.isDestroyed()) window.webContents.send(channel, payload)
     }
   }
+}
+
+/** Clamped minutes to milliseconds, shared by the settings lookup and the fallback. */
+function minutesToMs(minutes: number): number {
+  return Math.max(1, Math.round(minutes)) * 60_000
 }
 
 function longBreakInterval(): number {
