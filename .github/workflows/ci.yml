@@ -1,0 +1,53 @@
+name: CI
+
+# Every push and pull request has to pass the same checks the release depends on,
+# so a type error or a failing test cannot wait until a tag is pushed to surface.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+# A new commit on the same branch makes the previous run obsolete.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Typecheck, lint, test, build
+    # The app only ships for Windows, so the checks run on the platform the
+    # installer is built on — same runner image as the release workflow.
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        # Unit tests plus the data-layer integration tests, which open a real
+        # SQLite file in a temp directory.
+        run: npm test
+
+      - name: Build the app
+        # The renderer is a static export and the main process is bundled by
+        # esbuild, so this is the same build the installer packs.
+        run: npm run build:app
