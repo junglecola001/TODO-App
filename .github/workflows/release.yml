@@ -21,15 +21,17 @@ jobs:
     strategy:
       # One architecture failing should not cancel the other.
       fail-fast: false
-      # arm64 is deliberately absent. electron-builder 26.15.3 compresses the
-      # ARM64 executables in the NSIS payload with the ARM64 BCJ filter, which
-      # the NSIS extraction plugin cannot decode; it skips those entries and
-      # still reports success, producing an app with no .exe and no DLLs. The
-      # x64 payload uses the classic BCJ2 filter and is unaffected, and x64 runs
-      # on ARM64 Windows under emulation. Restore arm64 once packaging avoids
-      # that filter or a newer electron-builder fixes it.
+      # Both architectures ship. arm64 needs ELECTRON_BUILDER_7Z_FILTER=BCJ2 on
+      # the installer step below: electron-builder 26.15.3 hands the ARM64
+      # payload to 7-Zip without an explicit filter, 7-Zip then auto-selects its
+      # ARM64 branch converter, and the NSIS extraction plugin cannot decode
+      # those streams — it skips every .exe and .dll, reports success, and
+      # installs an app with no executable. Verified locally by installing the
+      # arm64 setup: without the filter the install had 0 DLLs and no
+      # FocusFlow.exe; with it, the executable, all six DLLs and
+      # win32-arm64.node were present.
       matrix:
-        arch: [x64]
+        arch: [x64, arm64]
 
     steps:
       - name: Check out
@@ -76,9 +78,14 @@ jobs:
         # `--publish never` keeps electron-builder from creating the release
         # itself: the last step below does it explicitly, so the asset list and
         # the release notes are under our control.
+        #
+        # BCJ2 is forced for arm64 only. x64 keeps 7-Zip's own choice (the same
+        # classic BCJ2 filter), so the proven x64 payload is untouched; an empty
+        # value means "no explicit filter" to electron-builder.
         run: npm run dist -- --publish never --${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_7Z_FILTER: ${{ matrix.arch == 'arm64' && 'BCJ2' || '' }}
 
       - name: Verify the packaged native addon matches the target architecture
         # Checks the tree electron-builder actually packs, because the failure
