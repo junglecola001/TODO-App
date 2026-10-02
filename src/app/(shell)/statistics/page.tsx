@@ -7,7 +7,8 @@ import { EmptyState } from "@/components/common/empty-state"
 import { PageHeader } from "@/components/common/page-header"
 import { StatCard } from "@/components/statistics/stat-card"
 import { WeeklyChart } from "@/components/statistics/weekly-chart"
-import { formatDuration } from "@/lib/dates"
+import { accentPreset } from "@/lib/constants"
+import { formatDuration, formatFullDate } from "@/lib/dates"
 import { messageOf } from "@/lib/errors"
 import { getDesktopBridge, ipc } from "@/lib/ipc"
 import type { StatisticsSummary } from "@/types/statistics"
@@ -77,14 +78,65 @@ export default function StatisticsPage() {
             />
             <StatCard label="Focus time" value={formatDuration(summary.focusMs)} />
             <StatCard label="Completed tasks" value={`${summary.completedTasks}`} />
+            <StatCard label="Tasks created" value={`${summary.createdTasks}`} />
             <StatCard
               label="Average focus"
               value={summary.averageFocusMs > 0 ? formatDuration(summary.averageFocusMs) : "—"}
               hint="per session"
             />
+            <StatCard
+              label="Best streak"
+              value={`${summary.longestStreakDays} ${summary.longestStreakDays === 1 ? "day" : "days"}`}
+              hint={`in the last ${RANGE_DAYS} days`}
+            />
           </div>
 
           <WeeklyChart daily={summary.daily} />
+
+          {summary.bestDay ? (
+            <p className="px-1 text-[11px] text-muted-foreground">
+              Best day · {formatFullDate(summary.bestDay.date)} · {summary.bestDay.focusSessions}{" "}
+              {summary.bestDay.focusSessions === 1 ? "pomodoro" : "pomodoros"} ·{" "}
+              {formatDuration(summary.bestDay.focusMs)}
+            </p>
+          ) : null}
+
+          {summary.byProject.length > 0 ? (
+            <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-soft">
+              <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Where the time went
+              </h2>
+              <ul className="flex flex-col gap-3.5">
+                {summary.byProject.map((row) => {
+                  // The bar is proportional to the total, so a light week still
+                  // reads correctly; a sliver stays visible for tiny shares.
+                  const share = summary.focusMs > 0 ? row.focusMs / summary.focusMs : 0
+                  const color = row.color ? accentPreset(row.color).hex : null
+
+                  return (
+                    <li key={row.projectId ?? "no-project"} className="flex flex-col gap-1.5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="truncate text-[13px]">{row.name}</span>
+                        <span className="tabular shrink-0 text-[13px] text-muted-foreground">
+                          {formatDuration(row.focusMs)}
+                          <span className="ml-1.5 text-[11px]">· {row.focusSessions}</span>
+                        </span>
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary/60"
+                          style={{
+                            width: `${Math.max(2, Math.round(share * 100))}%`,
+                            backgroundColor: color ?? undefined,
+                          }}
+                        />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ) : null}
         </>
       ) : (
         <EmptyState

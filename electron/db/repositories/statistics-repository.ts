@@ -1,7 +1,14 @@
 import { addDays, startOfDay } from "date-fns"
 
 import { toDateKey } from "@/lib/dates"
-import type { DailyStat, StatisticsSummary } from "@/types/statistics"
+import { countLongestStreakDays, countStreakDays, pickBestDay } from "@/lib/statistics"
+import type {
+  BestDayStat,
+  DailyStat,
+  ProjectFocusStat,
+  StatisticsSummary,
+} from "@/types/statistics"
+import type { AccentPresetId } from "@/types/settings"
 
 import { getSqlite } from "../index"
 
@@ -19,6 +26,14 @@ interface FocusRow {
 interface CompletedRow {
   day: string
   completed: number
+}
+
+interface ProjectRow {
+  project_id: string | null
+  name: string | null
+  color: string | null
+  sessions: number
+  total_ms: number
 }
 
 /**
@@ -80,16 +95,61 @@ export function getStatistics(rangeDaysInput: number): StatisticsSummary {
     focusSessions,
     focusMs,
     completedTasks,
+    createdTasks: countCreatedTasks(since),
     averageFocusMs: focusSessions > 0 ? Math.round(focusMs / focusSessions) : 0,
     streakDays: getStreakDays(),
+    longestStreakDays: countLongestStreakDays(
+      daily.filter((day) => day.focusSessions > 0).map((day) => day.date)
+    ),
+    bestDay: pickBestDay(daily) as BestDayStat | null,
+    byProject: getFocusByProject(since),
     daily,
   }
 }
 
+/** Tasks created inside the window — the other half of "what did I get done". */
+function countCreatedTasks(since: number): number {
+  const row = getSqlite()
+    .prepare("SELECT COUNT(*) AS created FROM tasks WHERE created_at >= ?")
+    .get(since) as { created: number }
+
+  return row.created
+}
+
 /**
- * Consecutive days with at least one focus session, counting back from today.
- * A day without a session yet does not break a streak that is still alive
- * yesterday (plan.md §14 keeps this deliberately light).
+ * Focus time split by project, busiest first. Sessions are joined through their
+ * task: a session with no task, or a task with no project, lands in a single
+ * "No project" bucket rather than being dropped.
+ */
+function getFocusByProject(since: number): ProjectFocusStat[] {
+  const rows = getSqlite()
+    .prepare(
+      `SELECT projects.id AS project_id,
+              projects.name AS name,
+              projects.color AS color,
+              COUNT(*) AS sessions,
+              COALESCE(SUM(sessions.duration), 0) AS total_ms
+         FROM pomodoro_sessions AS sessions
+         LEFT JOIN tasks ON tasks.id = sessions.task_id
+         LEFT JOIN projects ON projects.id = tasks.project_id
+        WHERE sessions.type = 'focus' AND sessions.started_at >= ?
+        GROUP BY projects.id
+        ORDER BY total_ms DESC, name ASC`
+    )
+    .all(since) as ProjectRow[]
+
+  return rows.map((row) => ({
+    projectId: row.project_id,
+    name: row.name ?? "No project",
+    color: (row.color as AccentPresetId | null) ?? null,
+    focusSessions: row.sessions,
+    focusMs: row.total_ms,
+  }))
+}
+
+/**
+ * The days that have at least one focus session, newest first. The streak rule
+ * itself lives in `@/lib/statistics` so it can be tested without a database.
  */
 function getStreakDays(): number {
   const rows = getSqlite()
@@ -102,24 +162,7 @@ function getStreakDays(): number {
     )
     .all(STREAK_SCAN_DAYS) as Array<{ day: string }>
 
-  const days = new Set(rows.map((row) => row.day))
-  if (days.size === 0) return 0
-
-  const today = startOfDay(new Date())
-  const todayKey = toDateKey(today)
-  const yesterdayKey = toDateKey(addDays(today, -1))
-
-  // The streak may start today or yesterday — anything older is already broken.
-  let cursor = days.has(todayKey) ? today : days.has(yesterdayKey) ? addDays(today, -1) : null
-  if (!cursor) return 0
-
-  let streak = 0
-  while (days.has(toDateKey(cursor))) {
-    streak += 1
-    cursor = addDays(cursor, -1)
-  }
-
-  return streak
+  return countStreakDays(rows.map((row) => row.day))
 }
 
 function clampRange(value: number): number {
