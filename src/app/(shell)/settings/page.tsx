@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { Monitor, Moon, Sun, TriangleAlert, Volume2, type LucideIcon } from "lucide-react"
 
@@ -8,16 +8,23 @@ import { PageHeader } from "@/components/common/page-header"
 import { SettingRow, SettingsSection } from "@/components/settings/settings-section"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { useMounted } from "@/hooks/use-mounted"
-import { ACCENT_PRESETS, TIMER_LIMITS } from "@/lib/constants"
+import { ACCENT_PRESETS, PALETTES, SOUND_THEMES, SOUND_VOLUME_LIMIT, TIMER_LIMITS } from "@/lib/constants"
 import { ipc } from "@/lib/ipc"
 import { playSound } from "@/lib/sounds"
 import { cn } from "@/lib/utils"
 import { useSettingsStore } from "@/stores/settings-store"
-import type { SystemInfo } from "@/types/ipc"
-import type { ThemeMode } from "@/types/settings"
+import type { SystemInfo, UpdateCheckResult } from "@/types/ipc"
+import type { PaletteId, SoundThemeId, ThemeMode } from "@/types/settings"
 
 const THEME_OPTIONS: Array<{ value: ThemeMode; label: string; icon: LucideIcon }> = [
   { value: "light", label: "Light", icon: Sun },
@@ -41,6 +48,9 @@ export default function SettingsPage() {
   const updateSettings = useSettingsStore((state) => state.update)
 
   const [system, setSystem] = useState<SystemInfo | null>(null)
+  const [appVersion, setAppVersion] = useState<string | null>(null)
+  const [update, setUpdate] = useState<UpdateCheckResult | null>(null)
+  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -52,8 +62,27 @@ export default function SettingsPage() {
       })
       .catch(() => undefined)
 
+    ipc.app
+      .getInfo()
+      .then((info) => {
+        if (active) setAppVersion(info.version)
+      })
+      .catch(() => undefined)
+
     return () => {
       active = false
+    }
+  }, [])
+
+  const checkForUpdates = useCallback(async () => {
+    setChecking(true)
+    try {
+      setUpdate(await ipc.updates.check())
+    } catch {
+      // The bridge itself failed; say so instead of leaving a spinner behind.
+      setUpdate(null)
+    } finally {
+      setChecking(false)
     }
   }, [])
 
@@ -127,6 +156,34 @@ export default function SettingsPage() {
             })}
           </div>
         </SettingRow>
+
+        <SettingRow label="Surfaces" description="The neutral palette behind every screen.">
+          <div className="flex items-center gap-1.5">
+            {PALETTES.map((preset) => {
+              const isActive = preset.id === settings.palette
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  aria-label={preset.label}
+                  aria-pressed={isActive}
+                  title={`${preset.label} — ${preset.description}`}
+                  onClick={() => void updateSettings({ palette: preset.id as PaletteId })}
+                  className={cn(
+                    "flex size-8 items-center justify-center overflow-hidden rounded-lg border transition-colors duration-150",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    isActive ? "border-ring ring-1 ring-ring/50" : "border-border hover:border-ring/60"
+                  )}
+                >
+                  <span className="flex size-full">
+                    <span className="h-full w-1/2" style={{ backgroundColor: preset.preview[0] }} />
+                    <span className="h-full w-1/2" style={{ backgroundColor: preset.preview[1] }} />
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </SettingRow>
       </SettingsSection>
 
       <SettingsSection title="Timer">
@@ -177,21 +234,69 @@ export default function SettingsPage() {
           />
         </SettingRow>
         <SettingRow label="Sound" description="Soft chimes for starting, finishing and breaks.">
+          <Switch
+            aria-label="Play sounds"
+            checked={settings.soundEnabled}
+            onCheckedChange={(checked) => void updateSettings({ soundEnabled: checked })}
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Sound style"
+          description={
+            SOUND_THEMES.find((preset) => preset.id === settings.soundTheme)?.description ??
+            "Pick the family of chimes."
+          }
+        >
           <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
               aria-label="Preview the completion sound"
+              disabled={!settings.soundEnabled}
               onClick={() => playSound("focusComplete")}
             >
               <Volume2 className="size-3.5" />
             </Button>
-            <Switch
-              aria-label="Play sounds"
-              checked={settings.soundEnabled}
-              onCheckedChange={(checked) => void updateSettings({ soundEnabled: checked })}
+            <Select
+              value={settings.soundTheme}
+              onValueChange={(value) =>
+                void updateSettings({ soundTheme: value as SoundThemeId })
+              }
+            >
+              <SelectTrigger className="w-40" aria-label="Sound style">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SOUND_THEMES.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </SettingRow>
+
+        <SettingRow label="Volume" description="How loud the chimes are.">
+          <div className="flex items-center gap-3">
+            <Slider
+              aria-label="Sound volume"
+              className="w-36"
+              value={[settings.soundVolume]}
+              min={SOUND_VOLUME_LIMIT.min}
+              max={SOUND_VOLUME_LIMIT.max}
+              step={SOUND_VOLUME_LIMIT.step}
+              disabled={!settings.soundEnabled}
+              onValueChange={(values) => {
+                const next = values[0]
+                if (typeof next === "number") void updateSettings({ soundVolume: next })
+              }}
             />
+            <span className="w-16 text-right text-[13px] tabular text-muted-foreground">
+              {settings.soundVolume}%
+            </span>
           </div>
         </SettingRow>
       </SettingsSection>
@@ -280,8 +385,68 @@ export default function SettingsPage() {
           </ul>
         </div>
       </SettingsSection>
+
+      <SettingsSection title="Updates">
+        <SettingRow label="Version" description="The build you are running.">
+          <span className="tabular text-[13px] text-muted-foreground">
+            {appVersion ? `FocusFlow ${appVersion}` : "—"}
+          </span>
+        </SettingRow>
+
+        <SettingRow
+          label="Check for updates on launch"
+          description="Asks GitHub once when FocusFlow starts."
+        >
+          <Switch
+            aria-label="Check for updates on launch"
+            checked={settings.autoUpdateCheck}
+            onCheckedChange={(checked) => void updateSettings({ autoUpdateCheck: checked })}
+          />
+        </SettingRow>
+
+        <SettingRow label="Check now" description={describeUpdate(checking, update)}>
+          <div className="flex items-center gap-2">
+            {update?.state === "available" ? (
+              <Button type="button" size="sm" onClick={() => void ipc.updates.openRelease()}>
+                Download
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={checking}
+              onClick={() => void checkForUpdates()}
+            >
+              {checking ? "Checking…" : "Check now"}
+            </Button>
+          </div>
+        </SettingRow>
+
+        <p className="py-3.5 text-[11px] leading-relaxed text-muted-foreground">
+          FocusFlow never downloads or installs anything by itself. A new version opens its GitHub
+          release page, and you decide when to install it.
+        </p>
+      </SettingsSection>
     </div>
   )
+}
+
+/** One line of plain language for whatever the last check returned. */
+function describeUpdate(checking: boolean, update: UpdateCheckResult | null): string {
+  if (checking) return "Asking GitHub for the newest release…"
+  if (!update) return "Not checked yet."
+
+  switch (update.state) {
+    case "up-to-date":
+      return `You are on the newest version (${update.currentVersion}).`
+    case "available":
+      return `Version ${update.latestVersion} is available.`
+    case "unavailable":
+      return update.message ?? "No release has been published yet."
+    case "error":
+      return update.message ?? "Could not reach the release server."
+  }
 }
 
 function DurationRow({

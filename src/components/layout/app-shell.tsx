@@ -15,7 +15,7 @@ import { FocusMode } from "@/components/timer/focus-mode"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useAppShortcuts } from "@/hooks/use-app-shortcuts"
 import { accentPreset } from "@/lib/constants"
-import { getDesktopBridge } from "@/lib/ipc"
+import { getDesktopBridge, ipc } from "@/lib/ipc"
 import { playSound } from "@/lib/sounds"
 import { useProjectStore } from "@/stores/project-store"
 import { useSettingsStore } from "@/stores/settings-store"
@@ -37,6 +37,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const settingsStatus = useSettingsStore((state) => state.status)
   const themeSetting = useSettingsStore((state) => state.settings.theme)
   const accentSetting = useSettingsStore((state) => state.settings.accent)
+  const paletteSetting = useSettingsStore((state) => state.settings.palette)
+  const autoUpdateCheck = useSettingsStore((state) => state.settings.autoUpdateCheck)
 
   const taskError = useTaskStore((state) => state.error)
   const projectError = useProjectStore((state) => state.error)
@@ -107,6 +109,39 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.style.setProperty("--primary", accentPreset(accentSetting).hsl)
   }, [accentSetting])
+
+  // Neutral surfaces come from a palette token set. `globals.css` keys the extra
+  // sets off this attribute; "default" matches nothing, so it stays the plan's
+  // original greys.
+  useEffect(() => {
+    document.documentElement.dataset.palette = paletteSetting
+  }, [paletteSetting])
+
+  // The only network request FocusFlow makes on its own — and only after the
+  // user turns it on in Settings (plan.md §24).
+  useEffect(() => {
+    if (settingsStatus !== "ready" || !autoUpdateCheck) return
+
+    let active = true
+
+    ipc.updates
+      .check()
+      .then((result) => {
+        if (!active || result.state !== "available") return
+        toast.info(`FocusFlow ${result.latestVersion} is available`, {
+          description: "Settings → Updates has the link.",
+          action: {
+            label: "Release page",
+            onClick: () => void ipc.updates.openRelease(),
+          },
+        })
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [settingsStatus, autoUpdateCheck])
 
   return (
     <TooltipProvider delayDuration={300} skipDelayDuration={200}>

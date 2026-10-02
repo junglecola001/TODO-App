@@ -1,9 +1,26 @@
-import { ACCENT_PRESETS, DEFAULT_SETTINGS, TIMER_LIMITS } from "@/lib/constants"
-import type { AccentPresetId, AppSettings, ThemeMode } from "@/types/settings"
+import {
+  ACCENT_PRESETS,
+  DEFAULT_SETTINGS,
+  PALETTES,
+  SOUND_THEMES,
+  SOUND_VOLUME_LIMIT,
+  TIMER_LIMITS,
+} from "@/lib/constants"
+import type {
+  AccentPresetId,
+  AppSettings,
+  PaletteId,
+  SoundThemeId,
+  ThemeMode,
+} from "@/types/settings"
 
 const THEME_MODES: readonly ThemeMode[] = ["light", "dark", "system"]
 
 const ACCENT_IDS: readonly AccentPresetId[] = ACCENT_PRESETS.map((preset) => preset.id)
+
+const PALETTE_IDS: readonly PaletteId[] = PALETTES.map((preset) => preset.id)
+
+const SOUND_THEME_IDS: readonly SoundThemeId[] = SOUND_THEMES.map((preset) => preset.id)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -31,6 +48,17 @@ export function sanitizeSettings(input: unknown): Partial<AppSettings> {
     result.accent = input.accent as AccentPresetId
   }
 
+  if (PALETTE_IDS.includes(input.palette as PaletteId)) {
+    result.palette = input.palette as PaletteId
+  }
+
+  if (SOUND_THEME_IDS.includes(input.soundTheme as SoundThemeId)) {
+    result.soundTheme = input.soundTheme as SoundThemeId
+  }
+
+  const soundVolume = clampInt(input.soundVolume, SOUND_VOLUME_LIMIT)
+  if (soundVolume !== undefined) result.soundVolume = soundVolume
+
   const focusMinutes = clampInt(input.focusMinutes, TIMER_LIMITS.focusMinutes)
   if (focusMinutes !== undefined) result.focusMinutes = focusMinutes
 
@@ -50,6 +78,7 @@ export function sanitizeSettings(input: unknown): Partial<AppSettings> {
     "startAtLogin",
     "closeToTray",
     "autoStartNextSession",
+    "autoUpdateCheck",
   ] as const) {
     const value = input[key]
     if (typeof value === "boolean") result[key] = value

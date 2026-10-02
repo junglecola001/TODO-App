@@ -1,4 +1,4 @@
-import type { AccentPresetId, AppSettings } from "@/types/settings"
+import type { AccentPresetId, AppSettings, PaletteId, SoundThemeId } from "@/types/settings"
 
 export const APP_NAME = "FocusFlow"
 export const APP_TAGLINE = "Less UI, More Focus."
@@ -29,9 +29,61 @@ export function accentPreset(id: AccentPresetId): AccentPreset {
   return ACCENT_PRESETS.find((preset) => preset.id === id) ?? ACCENT_PRESETS[0]!
 }
 
+export interface PalettePreset {
+  id: PaletteId
+  label: string
+  description: string
+  /** Two swatches for the Settings preview: light then dark background. */
+  preview: readonly [string, string]
+}
+
+/** Neutral surfaces only — the accent color is chosen separately. */
+export const PALETTES: readonly PalettePreset[] = [
+  {
+    id: "default",
+    label: "Graphite",
+    description: "The plan's neutral grey, warm in light mode and ink-black in dark.",
+    preview: ["#F7F7F5", "#111111"],
+  },
+  {
+    id: "warm",
+    label: "Warm",
+    description: "Paper and ink: cream surfaces with soft brown-grey text.",
+    preview: ["#FAF7F2", "#141110"],
+  },
+  {
+    id: "cool",
+    label: "Cool",
+    description: "Slate: a faint blue cast that keeps long sessions easy on the eye.",
+    preview: ["#F4F7FA", "#0D1117"],
+  },
+] as const
+
+export const DEFAULT_PALETTE: PaletteId = "default"
+
+export function palettePreset(id: PaletteId): PalettePreset {
+  return PALETTES.find((preset) => preset.id === id) ?? PALETTES[0]!
+}
+
+export interface SoundThemePreset {
+  id: SoundThemeId
+  label: string
+  description: string
+}
+
+export const SOUND_THEMES: readonly SoundThemePreset[] = [
+  { id: "bell", label: "Soft bell", description: "Sine bells with a long, quiet decay." },
+  { id: "chime", label: "Gentle chime", description: "A three-note rise for the end of a phase." },
+  { id: "click", label: "Subtle click", description: "Very short blips — barely there." },
+  { id: "minimal", label: "Minimal", description: "One low tone. The quietest option." },
+] as const
+
+export const SOUND_VOLUME_LIMIT = { min: 0, max: 100, step: 5 } as const
+
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
   accent: DEFAULT_ACCENT,
+  palette: DEFAULT_PALETTE,
 
   focusMinutes: 25,
   shortBreakMinutes: 5,
@@ -41,10 +93,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyOnFocusComplete: true,
   notifyOnBreakComplete: true,
   soundEnabled: true,
+  soundTheme: "bell",
+  soundVolume: 70,
 
   startAtLogin: false,
   closeToTray: true,
   autoStartNextSession: false,
+  autoUpdateCheck: false,
 }
 
 /** Guard rails for the duration sliders in Settings. */
