@@ -19,7 +19,9 @@
     "icons": "node scripts/generate-icons.mjs",
     "dist": "npm run icons && npm run build:app && electron-builder --win",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.23",
@@ -69,7 +71,8 @@
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
   },
   "build": {
     "appId": "com.focusflow.app",

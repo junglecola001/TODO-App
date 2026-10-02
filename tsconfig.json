@@ -36,6 +36,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "electron/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
