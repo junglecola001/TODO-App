@@ -21,6 +21,10 @@ export const IPC = {
   // Statistics
   StatisticsGet: "statistics:get",
 
+  // Updates
+  UpdatesCheck: "updates:check",
+  UpdatesOpenRelease: "updates:open-release",
+
   // Tasks
   TasksList: "tasks:list",
   TasksCreate: "tasks:create",

@@ -5,6 +5,7 @@ import { registerStatisticsIpc } from "./statistics-ipc"
 import { registerSystemIpc } from "./system-ipc"
 import { registerTaskIpc } from "./tasks-ipc"
 import { registerTimerIpc } from "./timer-ipc"
+import { registerUpdatesIpc } from "./updates-ipc"
 import { registerWindowIpc } from "./window-ipc"
 
 /** Wires every IPC handler. Called once, after the app is ready. */
@@ -17,4 +18,5 @@ export function registerIpcHandlers(): void {
   registerTimerIpc()
   registerSystemIpc()
   registerStatisticsIpc()
+  registerUpdatesIpc()
 }

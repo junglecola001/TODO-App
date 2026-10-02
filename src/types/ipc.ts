@@ -93,6 +93,30 @@ export interface StatisticsBridge {
   get: (rangeDays: number) => Promise<StatisticsSummary>
 }
 
+export type UpdateState = "up-to-date" | "available" | "unavailable" | "error"
+
+/**
+ * The outcome of asking GitHub for the latest release. FocusFlow never
+ * downloads or installs an update by itself: the check tells the user, and the
+ * release page does the rest (plan.md §24 keeps the app offline-first).
+ */
+export interface UpdateCheckResult {
+  state: UpdateState
+  currentVersion: string
+  latestVersion: string | null
+  /** Where to get it: the release page, or the releases list as a fallback. */
+  releaseUrl: string
+  publishedAt: string | null
+  /** Human-readable explanation for "unavailable" and "error". */
+  message: string | null
+}
+
+export interface UpdatesBridge {
+  check: () => Promise<UpdateCheckResult>
+  /** Opens the release page found by the last check. The URL never comes from the renderer. */
+  openRelease: () => Promise<void>
+}
+
 /**
  * The complete surface exposed to the renderer through `contextBridge`.
  * The renderer has no other access to Node.js or Electron APIs.
@@ -106,4 +130,5 @@ export interface FocusFlowApi {
   timer: TimerBridge
   system: SystemBridge
   statistics: StatisticsBridge
+  updates: UpdatesBridge
 }

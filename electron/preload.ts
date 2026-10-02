@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron"
 
 import { IPC } from "@/lib/ipc-channels"
 import type { CreateProjectInput, CreateTaskInput, UpdateProjectInput, UpdateTaskInput } from "@/types/domain"
-import type { AppInfo, FocusFlowApi, SystemInfo } from "@/types/ipc"
+import type { AppInfo, FocusFlowApi, SystemInfo, UpdateCheckResult } from "@/types/ipc"
 import type { AppSettings } from "@/types/settings"
 import type { StatisticsSummary } from "@/types/statistics"
 import type { TimerCompletionEvent, TimerPhase, TimerState } from "@/types/timer"
@@ -88,6 +88,10 @@ const api: FocusFlowApi = {
   statistics: {
     get: (rangeDays: number) =>
       ipcRenderer.invoke(IPC.StatisticsGet, rangeDays) as Promise<StatisticsSummary>,
+  },
+  updates: {
+    check: () => ipcRenderer.invoke(IPC.UpdatesCheck) as Promise<UpdateCheckResult>,
+    openRelease: () => ipcRenderer.invoke(IPC.UpdatesOpenRelease) as Promise<void>,
   },
 }
 

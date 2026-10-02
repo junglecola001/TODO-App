@@ -51,4 +51,7 @@ export const ipc: FocusFlowApi = {
   get statistics() {
     return requireBridge().statistics
   },
+  get updates() {
+    return requireBridge().updates
+  },
 }
