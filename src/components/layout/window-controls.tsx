@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Minus, Square, Copy, X } from "lucide-react"
 
+import { useMounted } from "@/hooks/use-mounted"
 import { getDesktopBridge } from "@/lib/ipc"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +15,12 @@ const controlClass =
  * Renders nothing outside Electron, so browser previews stay clean.
  */
 export function WindowControls({ className }: { className?: string }) {
+  // `window.focusflow` only exists inside Electron, so the pre-rendered HTML
+  // (produced by `next build`, where there is no bridge) contains nothing. The
+  // first client render must match that: gate on `mounted` rather than on the
+  // bridge alone, or React reports a hydration mismatch and throws the whole
+  // tree away to rebuild it on the client.
+  const mounted = useMounted()
   const [bridge] = useState(() => getDesktopBridge())
   const [isMaximized, setIsMaximized] = useState(false)
 
@@ -36,7 +43,7 @@ export function WindowControls({ className }: { className?: string }) {
     }
   }, [bridge])
 
-  if (!bridge) return null
+  if (!mounted || !bridge) return null
 
   return (
     <div className={cn("flex items-center gap-0.5", className)}>
