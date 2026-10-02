@@ -10,6 +10,27 @@ export const APP_HOST = "app"
 /** The renderer's origin: a real, secure origin, so localStorage and history work. */
 export const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`
 
+/**
+ * The renderer is a self-contained static export, so it can run under a strict
+ * policy: no `eval`, no remote origins, no plugins. Inline scripts and styles
+ * are allowed because Next.js inlines its hydration bootstrap and framer-motion
+ * writes inline styles. This header is what makes Electron's "Insecure
+ * Content-Security-Policy" warning go away (plan.md §23).
+ */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "media-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ")
+
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -72,6 +93,7 @@ export function registerAppProtocol(): void {
       status: 200,
       headers: {
         "content-type": CONTENT_TYPES[path.extname(file).toLowerCase()] ?? "application/octet-stream",
+        "content-security-policy": CONTENT_SECURITY_POLICY,
         "cache-control": "no-cache",
       },
     })
