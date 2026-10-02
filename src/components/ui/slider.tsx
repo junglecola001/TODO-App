@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 const Slider = React.forwardRef<
   React.ComponentRef<typeof SliderPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(({ className, value, ...props }, ref) => {
+>(({ className, value, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, ...props }, ref) => {
   // Radix renders one thumb per value so ranges stay supported.
   const thumbCount = Array.isArray(value) ? value.length : 1
 
@@ -26,9 +26,13 @@ const Slider = React.forwardRef<
       <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-muted">
         <SliderPrimitive.Range className="absolute h-full bg-primary" />
       </SliderPrimitive.Track>
+      {/* The accessible name belongs on the thumb, which is what carries
+          `role="slider"` — a label left on the root is never announced. */}
       {Array.from({ length: thumbCount }).map((_, index) => (
         <SliderPrimitive.Thumb
           key={index}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           className="block size-4 rounded-full border border-border bg-background shadow-soft transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none"
         />
       ))}
