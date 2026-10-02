@@ -46,6 +46,8 @@ immediately when the binary is already there.
 | `npm run dist` | Builds and produces the Windows installer in `release/` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint (Next.js + TypeScript rules) |
+| `npm test` | Vitest: unit tests plus the data-layer integration tests |
+| `npm run test:watch` | The same suite in watch mode |
 
 ## Architecture
 
@@ -78,10 +80,11 @@ SQLite  (%APPDATA%/FocusFlow/focusflow.db)
 electron/
   main.ts             app lifecycle, single instance, wiring
   window.ts           frameless window, close-to-tray, navigation guards
-  protocol.ts         focusflow:// handler serving out/
+  protocol.ts         focusflow:// handler serving out/ (+ the CSP header)
   tray.ts             notification-area icon, menu, live tooltip
   shortcuts.ts        system-wide shortcuts + conflict reporting
   system.ts           Windows login item
+  updater.ts          release check (GitHub API) — notify only, never installs
   notifications.ts    phase-complete and first-hide notifications
   timer/              the Pomodoro engine (main process, real-clock maths)
   db/                 schema, migrations, repositories
@@ -90,7 +93,8 @@ src/
   app/(shell)/        Today, Inbox, Upcoming, Projects, Statistics, Settings
   components/         ui/ (shadcn), layout/, task/, timer/, project/, statistics/, command-palette/
   stores/             Zustand: tasks, projects, settings, timer, UI
-  lib/                ipc client, dates, task views, parser, sounds, timer helpers
+  lib/                ipc client, dates, task views, parser, sounds, timer helpers, version
+tests/                Vitest: pure logic + the data layer against a real SQLite file
 ```
 
 ### Noteworthy decisions
@@ -103,9 +107,17 @@ src/
   "today" cannot drift across time zones. Statistics convert epoch milliseconds
   with SQLite's `localtime` modifier for the same reason.
 - **The accent color is applied as `--primary`** at runtime; project colors are
-  data and stay inline.
-- **Sounds are synthesised** with the Web Audio API — no audio assets, and the
-  whole palette is defined in `src/lib/sounds.ts`.
+  data and stay inline. Extra neutral palettes (Warm / Cool) are plain token
+  sets in `globals.css`, selected by a `data-palette` attribute.
+- **Sounds are synthesised** with the Web Audio API — no audio assets. Settings
+  chooses the family (soft bell / gentle chime / subtle click / minimal) and the
+  volume; the tables live in `src/lib/sounds.ts`.
+- **Updates are notified, never installed.** `electron/updater.ts` asks GitHub
+  for the newest release and, if it is newer, offers the release page. There is
+  no downloader, so the app still ships with a single runtime dependency
+  (`better-sqlite3`), and nothing is fetched unless the user asks.
+- **The renderer runs under a Content-Security-Policy** served with the
+  `focusflow://` response: no `eval`, no remote origins, no plugins.
 - **Icons are generated at runtime** (`electron/assets/icon.ts` writes a PNG with
   `zlib`), so the repository holds no opaque binaries.
 
@@ -126,6 +138,9 @@ The database is never written to the install directory.
   only maps names to those tokens, so re-theming never touches component code.
 - Default accent is `#FF5A5F`, and Settings can switch between Red / Orange /
   Blue / Purple / Green.
+- Three neutral surface palettes ship with the app — **Graphite** (the plan's
+  greys), **Warm** (paper and ink) and **Cool** (slate). They only override the
+  neutral tokens, so the accent stays the user's own choice.
 - Light: `#F7F7F5` canvas, `#FFFFFF` surface, `#171717` text, `#E8E8E5` border.
 - Dark: `#111111` canvas, `#181818` surface, `#F5F5F5` text, `#292929` border.
 - Icons: **Lucide** only. Animation: **Framer Motion** only.
@@ -144,6 +159,29 @@ The database is never written to the install directory.
 The `Ctrl+Alt+…` pairs are registered system-wide; the others stay local so they
 do not break other applications. Conflicts are reported in Settings.
 
+## Quick add
+
+The quick add field (and the command palette) understands a small, predictable
+slice of natural language. Anything it does not recognise stays in the title, so
+a failed parse can never block creating a task.
+
+| Input | Result |
+| --- | --- |
+| `Finish homework tomorrow` | due tomorrow |
+| `Practice piano !high #Music ~2` | high priority, project Music, 2 estimated pomodoros |
+| `Draft the report 3 pomodoros` | estimate spelled out |
+| `Trip next friday` | the friday of next week |
+| `Call mum in 2 weeks` / `in 3 days` | relative offset |
+| `Submit by 2026-03-20` | an explicit date |
+| `Read chapter 3 !!` | `!!!` high, `!!` medium, `!` low |
+
+## Updates
+
+FocusFlow checks for a newer release only when asked: **Settings → Updates →
+Check now**, or the opt-in "Check for updates on launch" switch (off by default,
+so the app makes no network call until you say so). A newer version opens its
+GitHub release page — there is no downloader and no silent install.
+
 ## Definition of Done
 
 Every phase is checked against plan.md §35:
@@ -154,15 +192,19 @@ Every phase is checked against plan.md §35:
 - [x] Keyboard navigation and visible focus states
 - [x] Loading, empty and error states on every list
 - [x] UI consistent with the design system, no duplicated components
-- [x] Local-first: no network calls anywhere in the app
+- [x] Local-first: the only network call is the opt-in update check
 
 Run before committing:
 
 ```bash
 npm run typecheck
 npm run lint
+npm test
 npm run build:app
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same four on every push and pull
+request; `release.yml` builds the installers when a `v*` tag is pushed.
 
 ## Status
 
@@ -175,5 +217,7 @@ npm run build:app
 | 4 — Timer | ✅ Drift-free engine, task × pomodoro, focus mode |
 | 5 — Integration | ✅ Sessions recorded, task counts, notifications, sounds |
 | 6 — Windows | ✅ Tray, close-to-tray, global shortcuts, login item |
-| 7 — Statistics | ✅ Pomodoros, focus time, completed tasks, streak, weekly chart |
-| 8 — Polish | ✅ Command palette, empty/error/loading states, accessibility pass |
+| 7 — Statistics | ✅ Pomodoros, focus time, completed and created tasks, streaks, project split, weekly chart |
+| 8 — Polish | ✅ Command palette, empty/error/loading states, accessibility pass, CSP |
+| 9 — Hardening | ✅ Unit + data-layer tests, push/PR CI, arm64 installer, opt-in update check |
+| V1.1 (plan.md §37) | ✅ Richer natural-language input, more statistics, sound styles + volume, extra palettes |
