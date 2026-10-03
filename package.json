@@ -4,6 +4,7 @@
   "private": true,
   "description": "FocusFlow — a calm, premium Todo + Pomodoro workspace for Windows.",
   "author": "FocusFlow",
+  "license": "MIT",
   "main": "dist-electron/main.js",
   "engines": {
     "node": ">=22"
