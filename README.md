@@ -241,3 +241,6 @@ CI（`.github/workflows/ci.yml`）在每次 push 和 pull request 时执行同�
 **少一些界面，多一些专注。**
 
 </div>
+
+
+# 感谢 Linux.do 社区
