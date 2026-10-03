@@ -5,6 +5,7 @@ import type { AppSettings } from "@/types/settings"
 
 import { readSettings, writeSettings } from "../db/repositories/settings-repository"
 import { applyAutoLaunch } from "../system"
+import { timerService } from "../timer/timer-service"
 import { databaseOperation } from "./errors"
 
 export function registerSettingsIpc(): void {
@@ -20,6 +21,11 @@ export function registerSettingsIpc(): void {
       if (patch && "startAtLogin" in patch) {
         applyAutoLaunch(settings.startAtLogin)
       }
+
+      // The timer caches the length of its current phase, so an idle readout
+      // has to be re-derived here — otherwise a new focus time only takes
+      // effect after the phase next changes.
+      timerService.syncSettings()
 
       return settings
     })

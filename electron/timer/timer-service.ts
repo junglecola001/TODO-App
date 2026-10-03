@@ -141,6 +141,30 @@ class TimerService {
   }
 
   /**
+   * Re-derives the current phase's length from the stored settings.
+   *
+   * Durations are otherwise only read on a transition, so an idle timer kept
+   * showing the length it was built with — 25 minutes by default — after the
+   * user edited the durations in Settings: nothing ever told the state to look
+   * again. This is what makes an idle readout follow Settings immediately.
+   *
+   * A phase that is already running or paused deliberately keeps its own
+   * length: moving the finish line of a session the user is watching would
+   * contradict the countdown on screen. The new duration applies from the next
+   * phase instead.
+   */
+  syncSettings(): TimerState {
+    if (this.state.status !== "idle") return this.getState()
+
+    const durationMs = this.durationFor(this.state.phase)
+    if (durationMs === this.state.durationMs) return this.getState()
+
+    this.state = { ...this.state, durationMs }
+    this.changed()
+    return this.getState()
+  }
+
+  /**
    * Picks the timer back up after a restart. A session that was running keeps
    * running only if it still has time left; an expired one is dropped rather
    * than recorded, because we cannot know whether the user was actually working
