@@ -21,6 +21,8 @@
 [![设计令牌](https://img.shields.io/badge/设计-令牌化%20%2B%20%E6%9A%97%E8%89%B2%E6%A8%A1%E5%BC%8F-8B5CF6?style=flat-square)](#设计系统)
 [![CSP](https://img.shields.io/badge/%E5%AE%89%E5%85%A8-CSP%20%2B%20%E6%B2%99%E7%AE%B1-1F6FEB?style=flat-square)](#亮点设计)
 
+<img src="assets/hero.png" alt="FocusFlow 主界面：左侧是今日任务与项目列表，右侧是番茄钟倒计时与专注模式" width="880" />
+
 </div>
 
 ---
@@ -127,6 +129,7 @@ src/
   stores/             Zustand：tasks、projects、settings、timer、UI
   lib/                IPC 客户端、日期、任务视图、解析器、音效、计时辅助、版本
 tests/                Vitest：纯逻辑 + 针对真实 SQLite 文件的数据层测试
+assets/               README 展示图，不参与打包
 ```
 
 ### 亮点设计
@@ -137,7 +140,7 @@ tests/                Vitest：纯逻辑 + 针对真实 SQLite 文件的数据�
 - **音效由 Web Audio API 合成**，不含音频资源。设置里选择音色族（柔和铃声 / 轻快钟声 / 细腻咔哒 / 极简）与音量，音色表位于 `src/lib/sounds.ts`。
 - **更新只提示、从不安装。** `electron/updater.ts` 向 GitHub 查询最新 release，若有更新则给出 release 页面链接。没有下载器，因此应用至今只保留一个运行时依赖（`better-sqlite3`），且除非用户主动要求，不会拉取任何内容。
 - **渲染层受 Content-Security-Policy 约束**，该 CSP 随 `focusflow://` 响应一起下发：没有 `eval`，没有远程源，没有插件。
-- **图标在运行时生成**（`electron/assets/icon.ts` 用 `zlib` 写出 PNG），因此仓库中不存放不透明的二进制文件。
+- **图标在运行时生成**（`electron/assets/icon.ts` 用 `zlib` 写出 PNG），因此应用图标不必在仓库中存放二进制文件。仓库里唯一的图片素材是顶部的展示图 `assets/hero.png`，它不参与打包。
 
 ### 数据存放位置
 
